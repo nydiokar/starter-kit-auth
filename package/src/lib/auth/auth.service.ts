@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { AUTH_CONFIG, AUTH_PRISMA, type AuthModuleOptions } from '../tokens';
 import { SessionService } from '../session/session.service';
 import { AuditService } from '../audit/audit.service';
-import { MailerService } from '../mailer/mailer.service';
+import { AUTH_MAILER, type MailerPort } from '../tokens';
 import { buildCookie } from '../common/cookies';
 import { hashPassword, verifyPassword, DUMMY_HASH } from '../common/password';
 import { randomTokenB64url, sha256 } from '../common/crypto';
@@ -14,7 +14,7 @@ export class AuthService {
     @Inject(AUTH_CONFIG) private readonly cfg: AuthModuleOptions,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
-    private readonly mailer: MailerService,
+    @Inject(AUTH_MAILER) private readonly mailer: MailerPort,
     @Optional() @Inject(AUTH_PRISMA) private readonly prisma?: any,
   ) {}
 

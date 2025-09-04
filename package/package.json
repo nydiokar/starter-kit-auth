@@ -27,7 +27,13 @@
     "@prisma/client": ">=5",
     "ioredis": ">=5",
     "class-transformer": ">=0.5.1",
-    "class-validator": ">=0.14.0"
+    "class-validator": ">=0.14.0",
+    "@aws-sdk/client-ses": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-ses": {
+      "optional": true
+    }
   },
   "dependencies": {
     "argon2": "^0.31.2",

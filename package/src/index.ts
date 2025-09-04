@@ -7,6 +7,9 @@ export * from './lib/rbac.module';
 export * from './lib/mailer.module';
 export * from './lib/audit.module';
 export * from './lib/tokens';
+// Mailer default implementation and port
+export * from './lib/mailer/nodemailer.mailer';
+export * from './lib/mailer/ses.mailer';
 // Guards/Decorators
 export * from './lib/session/session.guard';
 export * from './lib/rbac/roles.decorator';
@@ -16,4 +19,4 @@ export * from './lib/ratelimit/ratelimit.guard';
 // Services (for advanced wiring/testing)
 export * from './lib/session/session.service';
 export * from './lib/audit/audit.service';
-export * from './lib/mailer/mailer.service';
+export * from './lib/mailer/nodemailer.mailer';

@@ -1,7 +1,7 @@
 // Placeholder Nest module to illustrate packaging shape
 import { Module, DynamicModule } from '@nestjs/common';
 import Redis from 'ioredis';
-import { AUTH_CONFIG, AUTH_PRISMA, AUTH_REDIS, AuthModuleOptions } from './tokens';
+import { AUTH_CONFIG, AUTH_MAILER, AUTH_PRISMA, AUTH_REDIS, AuthModuleOptions } from './tokens';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
 import { SessionService } from './session/session.service';
@@ -25,6 +25,8 @@ export class AuthModule {
       providers: [
         { provide: AUTH_CONFIG, useValue: options },
         { provide: AUTH_REDIS, useFactory: () => new Redis(options.redis.url) },
+        // Allow custom mailer provider override via options.mailerProvider
+        ...(options.mailerProvider ? [{ provide: AUTH_MAILER, ...(options.mailerProvider as any) }] : []),
       ],
       exports: [AUTH_CONFIG, AUTH_REDIS, SessionService, SessionGuard],
     };

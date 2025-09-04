@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import nodemailer from 'nodemailer';
-import { AUTH_CONFIG, type AuthModuleOptions } from '../tokens';
+import { AUTH_CONFIG, type AuthModuleOptions, type MailerPort } from '../tokens';
 
 @Injectable()
-export class MailerService {
+export class NodemailerMailerService implements MailerPort {
   private transporter: nodemailer.Transporter;
   constructor(@Inject(AUTH_CONFIG) private readonly cfg: AuthModuleOptions) {
     this.transporter = nodemailer.createTransport({
