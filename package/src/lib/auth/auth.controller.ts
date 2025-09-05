@@ -1,14 +1,14 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { RequestResetDto } from './dto/request-reset.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { SessionGuard } from '../session/session.guard';
-import { RateLimit } from '../ratelimit/ratelimit.decorator';
-import { RateLimitGuard } from '../ratelimit/ratelimit.guard';
+import { AuthService } from './auth.service.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { LoginDto } from './dto/login.dto.js';
+import { VerifyEmailDto } from './dto/verify-email.dto.js';
+import { RequestResetDto } from './dto/request-reset.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { SessionGuard } from '../session/session.guard.js';
+import { RateLimit } from '../ratelimit/ratelimit.decorator.js';
+import { RateLimitGuard } from '../ratelimit/ratelimit.guard.js';
 
 @Controller()
 export class AuthController {

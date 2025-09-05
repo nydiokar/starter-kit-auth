@@ -1,11 +1,11 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Request } from 'express';
-import { AUTH_PRISMA } from '../tokens';
-import { getIp, getUserAgent } from '../common/http';
+import { AUTH_PRISMA } from '../tokens.js';
+import { getIp, getUserAgent } from '../common/http.js';
 
 @Injectable()
 export class AuditService {
-  constructor(@Optional() @Inject(AUTH_PRISMA) private readonly prisma?: any) {}
+  constructor(@Optional() @Inject(AUTH_PRISMA) private prisma?: any) {}
 
   async append(kind: string, userId?: string, req?: Request, meta?: any): Promise<void> {
     const ip = req ? getIp(req) : undefined;
@@ -15,4 +15,3 @@ export class AuditService {
     }
   }
 }
-

@@ -1,9 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Request } from 'express';
 import Redis from 'ioredis';
-import { AUTH_CONFIG, AUTH_PRISMA, AUTH_REDIS, type AuthModuleOptions } from '../tokens';
-import { getIp, getUserAgent } from '../common/http';
-import { ipHash, randomTokenB64url } from '../common/crypto';
+import { AUTH_CONFIG, AUTH_PRISMA, AUTH_REDIS, type AuthModuleOptions } from '../tokens.js';
+import { getIp, getUserAgent } from '../common/http.js';
+import { ipHash, randomTokenB64url } from '../common/crypto.js';
 
 export interface SessionRecord {
   userId: string;

@@ -1,7 +1,7 @@
 import { Injectable, Inject, NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { parse, serialize } from 'cookie';
-import { AUTH_CONFIG, type AuthModuleOptions } from '../tokens';
+import { AUTH_CONFIG, type AuthModuleOptions } from '../tokens.js';
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {

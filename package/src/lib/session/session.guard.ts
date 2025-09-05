@@ -1,15 +1,16 @@
 import { CanActivate, ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import { parse } from 'cookie';
 import type { Request } from 'express';
-import { AUTH_CONFIG, AUTH_PRISMA, type AuthModuleOptions } from '../tokens';
-import { SessionService } from './session.service';
+import { AUTH_CONFIG, AUTH_PRISMA, type AuthModuleOptions } from '../tokens.js';
+import { SessionService } from './session.service.js';
+//
 
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(
     private readonly sessions: SessionService,
     @Inject(AUTH_CONFIG) private readonly cfg: AuthModuleOptions,
-    @Optional() @Inject(AUTH_PRISMA) private readonly prisma?: any,
+    @Optional() @Inject(AUTH_PRISMA) private prisma?: any,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,4 +28,3 @@ export class SessionGuard implements CanActivate {
     return true;
   }
 }
-

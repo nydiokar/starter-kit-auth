@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { SessionGuard } from './session.guard';
-import { SessionService } from './session.service';
+import { SessionGuard } from './session.guard.js';
+import { SessionService } from './session.service.js';
 
 @Controller()
 @UseGuards(SessionGuard)

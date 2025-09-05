@@ -1,12 +1,12 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { AUTH_CONFIG, AUTH_PRISMA, type AuthModuleOptions } from '../tokens';
-import { SessionService } from '../session/session.service';
-import { AuditService } from '../audit/audit.service';
-import { AUTH_MAILER, type MailerPort } from '../tokens';
-import { buildCookie } from '../common/cookies';
-import { hashPassword, verifyPassword, DUMMY_HASH } from '../common/password';
-import { randomTokenB64url, sha256 } from '../common/crypto';
+import { AUTH_CONFIG, AUTH_PRISMA, type AuthModuleOptions } from '../tokens.js';
+import { SessionService } from '../session/session.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { AUTH_MAILER, type MailerPort } from '../tokens.js';
+import { buildCookie } from '../common/cookies.js';
+import { hashPassword, verifyPassword, DUMMY_HASH } from '../common/password.js';
+import { randomTokenB64url, sha256 } from '../common/crypto.js';
 
 @Injectable()
 export class AuthService {

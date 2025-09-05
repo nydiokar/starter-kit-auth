@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { AUTH_CONFIG, type AuthModuleOptions, type MailerPort } from '../tokens';
+import { AUTH_CONFIG, type AuthModuleOptions, type MailerPort } from '../tokens.js';
 
 @Injectable()
 export class SesMailerService implements MailerPort {

@@ -1,11 +1,11 @@
 import { CanActivate, ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from './roles.decorator';
-import { AUTH_PRISMA } from '../tokens';
+import { ROLES_KEY } from './roles.decorator.js';
+import { AUTH_PRISMA } from '../tokens.js';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector, @Optional() @Inject(AUTH_PRISMA) private readonly prisma?: any) {}
+  constructor(@Inject(Reflector) private readonly reflector: Reflector, @Optional() @Inject(AUTH_PRISMA) private prisma?: any) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const required = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [context.getHandler(), context.getClass()]);
@@ -18,4 +18,3 @@ export class RolesGuard implements CanActivate {
     return required.some((r) => names.has(r));
   }
 }
-
