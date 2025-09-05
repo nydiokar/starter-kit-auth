@@ -46,12 +46,23 @@ package.json (template)
 ```
 
 Build Config
-- tsconfig.json: `"declaration": true`, `"outDir": "dist"`
+- tsconfig.json: `"declaration": true`, `"outDir": "dist"`, `"module": "ESNext"`
+- **ESM Requirements**: All relative imports must use `.js` extensions (e.g., `import './tokens.js'`)
 - Optionally use `tsup` for CJS+ESM dual build
 
 What Not To Ship
 - Prisma migrations or schema files (document them instead)
 - App-specific controllers beyond auth scope
+
+Mailer Providers
+- Default: Nodemailer implementation is provided under token `AUTH_MAILER`.
+- Override: Supply `mailerProvider` in `AuthModule.forRoot(...)` with a Nest provider for `AUTH_MAILER` to switch to AWS SES or another service.
+  - Example: `{ mailerProvider: { useClass: AwsSesMailerService } }` where `AwsSesMailerService` implements `MailerPort`.
+
+DI Dependencies
+- The package exports `Reflector` from `AuthModule.forRoot()` for proper NestJS integration
+- `AUTH_PRISMA` token expects Prisma client from consumer app's global providers
+- `AUTH_REDIS` is created internally from redis URL configuration
 
 Release Process
 - Update changelog; bump semver
@@ -60,4 +71,3 @@ Release Process
 
 Consumer Integration
 - See `auth_module/add_this.md` for exact steps
-

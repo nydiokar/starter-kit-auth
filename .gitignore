@@ -31,6 +31,8 @@ all_alerts/
 alerts.json
 analysis_reports/
 debug_output/
+examples/
+
 
 ## PROJECT DOCUMENTATION
 9. DNM.md

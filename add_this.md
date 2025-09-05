@@ -9,6 +9,7 @@ Package Name (example)
 What This Package Exposes
 - Nest modules: `AuthModule`, `SessionModule`, `CsrfModule`, `RateLimitModule`, `RbacModule`, `MailerModule`, `AuditModule`
 - Tokens/interfaces: inject your Prisma client via `AUTH_PRISMA` token; Redis created from URL
+- Guards: `SessionGuard`, `RateLimitGuard`, `RolesGuard` (includes `Reflector` dependency)
 - DTOs, controllers, guards, and services to wire endpoints quickly
 
 Consumer Requirements
@@ -22,17 +23,35 @@ npm i @lean-kit/auth argon2 ioredis nodemailer
 npm i -D @types/node @types/express @types/cookie @types/nodemailer typescript ts-node
 ```
 
+AWS SES (optional)
+- If you prefer SES, install the AWS SDK v3 module:
+```
+npm i @aws-sdk/client-ses
+```
+
 Wire Up (Nest root module)
 ```ts
 import 'reflect-metadata';
-import { Module } from '@nestjs/common';
-import { AUTH_PRISMA, AuthModule } from '@lean-kit/auth';
+import { Global, Module } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { AUTH_PRISMA, AUTH_MAILER, AuthModule, type MailerPort, SesMailerService } from '@lean-kit/auth';
+
+@Global()
+@Module({
+  providers: [
+    { provide: PrismaClient, useFactory: () => new PrismaClient() },
+    { provide: AUTH_PRISMA, useExisting: PrismaClient },
+  ],
+  exports: [AUTH_PRISMA, PrismaClient],
+})
+export class PrismaModule {}
+
 @Module({
   imports: [
-    // Provide your Prisma client under AUTH_PRISMA
-    { provide: AUTH_PRISMA, useExisting: PrismaService },
+    PrismaModule,
     AuthModule.forRoot({
       redis: { url: process.env.REDIS_URL! },
+      prisma: {}, // Required - AuthModule will inject AUTH_PRISMA from PrismaModule
       cookie: {
         name: process.env.SESSION_COOKIE_NAME!,
         domain: process.env.COOKIE_DOMAIN,
@@ -51,10 +70,18 @@ import { AUTH_PRISMA, AuthModule } from '@lean-kit/auth';
         },
         frontendUrl: process.env.FRONTEND_URL!,
       },
+      // Optional: override mailer implementation
+      // Nodemailer is default; to use AWS SES instead:
+      // mailerProvider: { provide: AUTH_MAILER, useClass: SesMailerService as unknown as new (...args:any[]) => MailerPort },
     }),
   ],
 })
 export class AppModule {}
+```
+
+If you have a `PrismaService extends PrismaClient`, provide it like:
+```ts
+providers: [PrismaService, { provide: AUTH_PRISMA, useExisting: PrismaService }]
 ```
 
 Prisma
