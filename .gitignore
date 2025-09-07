@@ -31,17 +31,6 @@ all_alerts/
 alerts.json
 analysis_reports/
 debug_output/
-examples/
-
-
-## PROJECT DOCUMENTATION
-9. DNM.md
-99.DS01.md
-99.DS02.md
-99.DS03.md
-99.DS04.md
-99.DS05.md
-99.DS06.md
 
 *.ps1
 *.bat
