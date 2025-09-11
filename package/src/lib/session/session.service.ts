@@ -54,7 +54,13 @@ export class SessionService {
 
   async get(sessionId: string): Promise<SessionRecord | null> {
     const raw = await this.redis.get(this.key(sessionId));
-    return raw ? (JSON.parse(raw) as SessionRecord) : null;
+    if (!raw) return null;
+    
+    try {
+      return JSON.parse(raw) as SessionRecord;
+    } catch {
+      return null;
+    }
   }
 
   async revoke(sessionId: string): Promise<void> {
@@ -80,8 +86,9 @@ export class SessionService {
       const sessions = await this.prisma.session.findMany({ where: { userId }, select: { id: true } });
       const ids = sessions.map((s: any) => s.id);
       if (ids.length) {
-        await this.redis.del(...ids.map((id: string) => this.key(id)));
+        // Delete from DB first to maintain consistency if Redis fails
         await this.prisma.session.deleteMany({ where: { userId } });
+        await this.redis.del(...ids.map((id: string) => this.key(id)));
       }
       return;
     }

@@ -44,6 +44,8 @@ export class AuthService {
     const sid = await this.sessions.create(user.id, req);
     this.setSessionCookie(res, sid);
     const token = randomTokenB64url(32);
+    // Delete existing tokens to prevent race condition
+    await this.prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
     await this.prisma.emailVerificationToken.create({
       data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
     });
@@ -55,8 +57,12 @@ export class AuthService {
   async login(email: string, password: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
     if (!this.prisma?.user || !this.prisma?.passwordCredential) throw new Error('Prisma not wired');
     const normalized = (email || '').trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
-    const cred = user ? await this.prisma.passwordCredential.findUnique({ where: { userId: user.id } }) : null;
+    // Single query to eliminate timing attack
+    const user = await this.prisma.user.findUnique({ 
+      where: { email: normalized }, 
+      include: { password: true } 
+    });
+    const cred = user?.password;
     const ok = await verifyPassword(cred?.hash || DUMMY_HASH, password || '', this.cfg.pepper);
     if (!user || !ok || user.isActive === false) {
       await this.audit.append('LOGIN_FAIL', user?.id, req);
@@ -84,6 +90,8 @@ export class AuthService {
     const user = (req as any).user as { id: string; email: string } | undefined;
     if (!user || !this.prisma?.emailVerificationToken) return { status: 401, body: { error: 'Unauthorized' } };
     const token = randomTokenB64url(32);
+    // Delete existing tokens to prevent race condition
+    await this.prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
     await this.prisma.emailVerificationToken.create({
       data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
     });
@@ -111,6 +119,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email: (email || '').trim().toLowerCase() } });
     if (user) {
       const token = randomTokenB64url(32);
+      // Delete existing tokens to prevent race condition
+      await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
       await this.prisma.passwordResetToken.create({
         data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 30) },
       });
