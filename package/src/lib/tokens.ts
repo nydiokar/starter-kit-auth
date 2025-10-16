@@ -23,6 +23,12 @@ export interface MailerPort {
   sendPasswordReset(user: { email: string }, token: string): Promise<void>;
 }
 
+export interface EmailVerificationConfig {
+  disableEmailVerification: boolean; // default: false (verification required)
+  autoSendOnRegister: boolean;       // default: true
+  sessionBeforeVerification: boolean; // default: false (no session until verified)
+}
+
 export interface AuthModuleOptions {
   pepper: string;
   csrfCookieName: string;
@@ -32,4 +38,6 @@ export interface AuthModuleOptions {
   mailer: MailerConfig;
   // Optional: override mailer implementation. Provide a Nest provider for AUTH_MAILER.
   mailerProvider?: any;
+  // Email verification configuration
+  emailVerification?: EmailVerificationConfig;
 }

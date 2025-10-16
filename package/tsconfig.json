@@ -9,10 +9,12 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "sourceMap": false,
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "types": ["node", "jest"]
-  }
+  },
+  "include": ["src/**/*", "test-di.ts"],
+  "exclude": ["node_modules", "dist"]
 }

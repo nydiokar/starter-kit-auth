@@ -6,6 +6,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { RequestResetDto } from './dto/request-reset.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { RegisterResponseDto } from './dto/register-response.dto.js';
+import { LoginResponseDto } from './dto/login-response.dto.js';
 import { SessionGuard } from '../session/session.guard.js';
 import { RateLimit } from '../ratelimit/ratelimit.decorator.js';
 import { RateLimitGuard } from '../ratelimit/ratelimit.guard.js';
@@ -19,7 +21,14 @@ export class AuthController {
   @RateLimit({ key: 'register', limit: 5, windowSec: 60, by: 'ip' })
   async register(@Body() dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const r = await this.auth.register(dto.email, dto.password, req, res);
-    res.status(r.status);
+
+    // Handle different response scenarios based on verification requirements
+    if (r.body?.requiresVerification) {
+      res.status(202); // 202 Accepted - verification required
+    } else {
+      res.status(r.status);
+    }
+
     return r.body ?? {};
   }
 
@@ -59,8 +68,8 @@ export class AuthController {
   @Post('/auth/verify')
   @UseGuards(RateLimitGuard)
   @RateLimit({ key: 'verify', limit: 10, windowSec: 300, by: 'account' })
-  async verify(@Body() dto: VerifyEmailDto, @Req() req: Request) {
-    const r = await this.auth.verifyEmail(dto.token, req);
+  async verify(@Body() dto: VerifyEmailDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const r = await this.auth.verifyEmail(dto.token, req, res);
     return r.body ?? {};
   }
 

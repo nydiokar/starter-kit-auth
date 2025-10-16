@@ -41,15 +41,38 @@ export class AuthService {
     const user = await this.prisma.user.create({ data: { email: normalized } });
     await this.prisma.passwordCredential.create({ data: { userId: user.id, hash, algo: 'argon2id' } });
     await this.audit.append('REGISTER', user.id, req);
-    const sid = await this.sessions.create(user.id, req);
-    this.setSessionCookie(res, sid);
-    const token = randomTokenB64url(32);
-    await this.prisma.emailVerificationToken.create({
-      data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
-    });
-    await this.mailer.sendVerifyEmail(user, token).catch(() => {});
-    await this.audit.append('VERIFY_SENT', user.id, req);
-    return { status: 201, body: { id: user.id, email: user.email } };
+
+    // Send verification email if not disabled
+    const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
+    const shouldSendVerification = this.cfg.emailVerification?.autoSendOnRegister !== false;
+    const sessionBeforeVerification = this.cfg.emailVerification?.sessionBeforeVerification || false;
+
+    if (shouldSendVerification && !disableVerification) {
+      const token = randomTokenB64url(32);
+      await this.prisma.emailVerificationToken.create({
+        data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
+      });
+      await this.mailer.sendVerifyEmail(user, token).catch(() => {});
+      await this.audit.append('VERIFY_SENT', user.id, req);
+    }
+
+    // Create session only if verification is disabled OR sessions allowed before verification
+    const requiresVerification = !disableVerification && !sessionBeforeVerification;
+
+    if (!requiresVerification) {
+      const sid = await this.sessions.create(user.id, req);
+      this.setSessionCookie(res, sid);
+    }
+
+    return {
+      status: requiresVerification ? 202 : 201,
+      body: {
+        id: user.id,
+        email: user.email,
+        requiresVerification,
+        verificationSent: shouldSendVerification && !disableVerification
+      }
+    };
   }
 
   async login(email: string, password: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
@@ -58,14 +81,23 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email: normalized } });
     const cred = user ? await this.prisma.passwordCredential.findUnique({ where: { userId: user.id } }) : null;
     const ok = await verifyPassword(cred?.hash || DUMMY_HASH, password || '', this.cfg.pepper);
+
+    // Check email verification if not disabled
+    const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
+    if (!disableVerification && user && !user.emailVerifiedAt) {
+      await this.audit.append('LOGIN_FAIL_NOT_VERIFIED', user.id, req);
+      return { status: 403, body: { error: 'Email verification required' } };
+    }
+
     if (!user || !ok || user.isActive === false) {
       await this.audit.append('LOGIN_FAIL', user?.id, req);
       return { status: 401, body: { error: 'Invalid credentials' } };
     }
+
     const sid = await this.sessions.create(user.id, req);
     this.setSessionCookie(res, sid);
     await this.audit.append('LOGIN_SUCCESS', user.id, req);
-    return { status: 200, body: { id: user.id, email: user.email } };
+    return { status: 200, body: { id: user.id, email: user.email, emailVerified: !!user.emailVerifiedAt } };
   }
 
   async logout(req: Request): Promise<{ status: number; body?: any }> {
@@ -92,17 +124,32 @@ export class AuthService {
     return { status: 204 };
   }
 
-  async verifyEmail(token: string, req: Request): Promise<{ status: number; body?: any }> {
+  async verifyEmail(token: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
     if (!this.prisma?.emailVerificationToken || !this.prisma?.user) throw new Error('Prisma not wired');
     const hash = sha256(token);
     const rec = await this.prisma.emailVerificationToken.findUnique({ where: { tokenHash: hash } });
     if (!rec || rec.usedAt || rec.expiresAt < new Date()) return { status: 400, body: { error: 'Invalid token' } };
+
+    const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
+
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: rec.userId }, data: { emailVerifiedAt: new Date() } }),
       this.prisma.emailVerificationToken.update({ where: { id: rec.id }, data: { usedAt: new Date() } }),
       this.prisma.emailVerificationToken.deleteMany({ where: { userId: rec.userId, usedAt: null, id: { not: rec.id } } }),
     ]);
+
     await this.audit.append('VERIFY_OK', rec.userId, req);
+
+    // Create session if verification is required (not disabled)
+    if (!disableVerification) {
+      const user = await this.prisma.user.findUnique({ where: { id: rec.userId } });
+      if (user) {
+        const sid = await this.sessions.create(rec.userId, req);
+        this.setSessionCookie(res, sid);
+        await this.audit.append('SESSION_CREATED_POST_VERIFICATION', rec.userId, req);
+      }
+    }
+
     return { status: 204 };
   }
 

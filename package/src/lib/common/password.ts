@@ -8,7 +8,6 @@ export interface ArgonParams {
 
 export async function hashPassword(password: string, pepper: string, params: ArgonParams): Promise<string> {
   return argon2.hash(password + pepper, {
-    type: argon2.argon2id,
     memoryCost: params.memoryCost,
     timeCost: params.timeCost,
     parallelism: params.parallelism,

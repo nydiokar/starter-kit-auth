@@ -13,7 +13,6 @@ import Redis from 'ioredis';
 describe('AuthModule - Comprehensive DI and Functionality Test', () => {
   let app: INestApplication;
   let module: TestingModule;
-  
   const mockAuthOptions: AuthModuleOptions = {
     pepper: 'test-pepper-123',
     csrfCookieName: 'csrf-token',
@@ -30,6 +29,11 @@ describe('AuthModule - Comprehensive DI and Functionality Test', () => {
       from: 'test@example.com',
       smtp: { host: 'smtp.test.com', user: 'test', pass: 'pass' },
       frontendUrl: 'http://localhost:3000'
+    },
+    emailVerification: {
+      disableEmailVerification: false, // verification required by default
+      autoSendOnRegister: true,
+      sessionBeforeVerification: false  // no session until verified
     }
   };
 
