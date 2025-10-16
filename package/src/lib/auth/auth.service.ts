@@ -82,15 +82,16 @@ export class AuthService {
     const cred = user ? await this.prisma.passwordCredential.findUnique({ where: { userId: user.id } }) : null;
     const ok = await verifyPassword(cred?.hash || DUMMY_HASH, password || '', this.cfg.pepper);
 
-    // Check email verification if not disabled
+    // Check authentication and verification requirements
     const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
-    if (!disableVerification && user && !user.emailVerifiedAt) {
-      await this.audit.append('LOGIN_FAIL_NOT_VERIFIED', user.id, req);
-      return { status: 403, body: { error: 'Email verification required' } };
-    }
+    const isVerificationRequired = !disableVerification;
 
-    if (!user || !ok || user.isActive === false) {
-      await this.audit.append('LOGIN_FAIL', user?.id, req);
+    if (!user || !ok || user.isActive === false || (isVerificationRequired && !user.emailVerifiedAt)) {
+      if (user && isVerificationRequired && !user.emailVerifiedAt) {
+        await this.audit.append('LOGIN_FAIL_NOT_VERIFIED', user.id, req);
+      } else {
+        await this.audit.append('LOGIN_FAIL', user?.id, req);
+      }
       return { status: 401, body: { error: 'Invalid credentials' } };
     }
 
@@ -140,13 +141,17 @@ export class AuthService {
 
     await this.audit.append('VERIFY_OK', rec.userId, req);
 
-    // Create session if verification is required (not disabled)
+    // Create session if verification is required (not disabled) and user doesn't already have one
     if (!disableVerification) {
       const user = await this.prisma.user.findUnique({ where: { id: rec.userId } });
       if (user) {
-        const sid = await this.sessions.create(rec.userId, req);
-        this.setSessionCookie(res, sid);
-        await this.audit.append('SESSION_CREATED_POST_VERIFICATION', rec.userId, req);
+        const existingSessions = await this.sessions.listForUser(rec.userId);
+        const hasActiveSession = existingSessions.some(session => !session.revokedAt);
+        if (!hasActiveSession) {
+          const sid = await this.sessions.create(rec.userId, req);
+          this.setSessionCookie(res, sid);
+          await this.audit.append('SESSION_CREATED_POST_VERIFICATION', rec.userId, req);
+        }
       }
     }
 

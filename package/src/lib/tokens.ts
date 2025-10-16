@@ -24,9 +24,9 @@ export interface MailerPort {
 }
 
 export interface EmailVerificationConfig {
-  disableEmailVerification: boolean; // default: false (verification required)
-  autoSendOnRegister: boolean;       // default: true
-  sessionBeforeVerification: boolean; // default: false (no session until verified)
+  disableEmailVerification?: boolean; // default: false (verification required)
+  autoSendOnRegister?: boolean;       // default: true
+  sessionBeforeVerification?: boolean; // default: false (no session until verified)
 }
 
 export interface AuthModuleOptions {
