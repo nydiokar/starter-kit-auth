@@ -28,17 +28,7 @@ export class AuthModule {
       providers: [
         { provide: AUTH_CONFIG, useValue: options },
         { provide: AUTH_REDIS, useFactory: () => {
-          try {
-            console.log('Creating Redis with URL:', options.redis.url);
-            const redis = new Redis(options.redis.url);
-            console.log('Redis instance type:', typeof redis);
-            console.log('Redis constructor chain:', redis.constructor.name, '->', Object.getPrototypeOf(redis.constructor).name);
-            console.log('Is Redis instance:', redis instanceof Redis);
-            return redis;
-          } catch (error) {
-            console.error('Redis creation failed:', error);
-            throw error;
-          }
+          return new Redis(options.redis.url);
         }},
         // Allow custom mailer provider override via options.mailerProvider
         ...(options.mailerProvider ? [{ provide: AUTH_MAILER, ...(options.mailerProvider as any) }] : []),

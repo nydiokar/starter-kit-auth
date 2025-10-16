@@ -2,6 +2,7 @@ import { Injectable, Inject, NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { parse, serialize } from 'cookie';
 import { AUTH_CONFIG, type AuthModuleOptions } from '../tokens.js';
+import { randomTokenB64url } from '../common/crypto.js';
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
@@ -14,7 +15,7 @@ export class CsrfMiddleware implements NestMiddleware {
     const csrf = cookies[name];
     // Set CSRF cookie on first GET if missing
     if (method === 'GET' && !csrf) {
-      const token = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 32);
+      const token = randomTokenB64url(32);
       res.setHeader(
         'Set-Cookie',
         serialize(name, token, {
@@ -33,7 +34,9 @@ export class CsrfMiddleware implements NestMiddleware {
     if (hasSession && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       const header = (req.headers['x-csrf-token'] as string) || '';
       if (!csrf || !header || header !== csrf) {
-        res.status(403).json({ error: 'CSRF' });
+        res.status(403);
+        res.setHeader('Content-Type', 'application/json');
+        res.json({ error: 'Invalid CSRF token' });
         return;
       }
     }

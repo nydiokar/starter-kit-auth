@@ -33,14 +33,22 @@ export class AuthService {
   }
 
   async register(email: string, password: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
-    const normalized = email.trim().toLowerCase();
-    if (!this.prisma?.user || !this.prisma?.passwordCredential) throw new Error('Prisma not wired');
-    const exists = await this.prisma.user.findUnique({ where: { email: normalized } });
-    if (exists) return { status: 400, body: { error: 'Invalid credentials' } };
-    const hash = await hashPassword(password, this.cfg.pepper, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
-    const user = await this.prisma.user.create({ data: { email: normalized } });
-    await this.prisma.passwordCredential.create({ data: { userId: user.id, hash, algo: 'argon2id' } });
-    await this.audit.append('REGISTER', user.id, req);
+    let user: any = null;
+    try {
+      const normalized = email.trim().toLowerCase();
+      if (!this.prisma?.user || !this.prisma?.passwordCredential) throw new Error('Prisma not wired');
+
+      const exists = await this.prisma.user.findUnique({ where: { email: normalized } });
+      if (exists) return { status: 400, body: { error: 'Invalid credentials' } };
+
+      const hash = await hashPassword(password, this.cfg.pepper, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
+      user = await this.prisma.user.create({ data: { email: normalized } });
+      await this.prisma.passwordCredential.create({ data: { userId: user.id, hash, algo: 'argon2id' } });
+      await this.audit.append('REGISTER', user.id, req);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return { status: 500, body: { error: 'Registration failed' } };
+    }
 
     // Send verification email if not disabled
     const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
@@ -48,12 +56,18 @@ export class AuthService {
     const sessionBeforeVerification = this.cfg.emailVerification?.sessionBeforeVerification || false;
 
     if (shouldSendVerification && !disableVerification) {
-      const token = randomTokenB64url(32);
-      await this.prisma.emailVerificationToken.create({
-        data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
-      });
-      await this.mailer.sendVerifyEmail(user, token).catch(() => {});
-      await this.audit.append('VERIFY_SENT', user.id, req);
+      try {
+        const token = randomTokenB64url(32);
+        await this.prisma.emailVerificationToken.create({
+          data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
+        });
+        await this.mailer.sendVerifyEmail(user, token);
+        await this.audit.append('VERIFY_SENT', user.id, req);
+      } catch (error) {
+        console.error('Failed to send verification email:', error);
+        // Continue with registration even if email fails
+        await this.audit.append('VERIFY_SEND_FAILED', user.id, req);
+      }
     }
 
     // Create session only if verification is disabled OR sessions allowed before verification
@@ -76,29 +90,36 @@ export class AuthService {
   }
 
   async login(email: string, password: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
-    if (!this.prisma?.user || !this.prisma?.passwordCredential) throw new Error('Prisma not wired');
-    const normalized = (email || '').trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
-    const cred = user ? await this.prisma.passwordCredential.findUnique({ where: { userId: user.id } }) : null;
-    const ok = await verifyPassword(cred?.hash || DUMMY_HASH, password || '', this.cfg.pepper);
+    try {
+      if (!this.prisma?.user || !this.prisma?.passwordCredential) throw new Error('Prisma not wired');
 
-    // Check authentication and verification requirements
-    const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
-    const isVerificationRequired = !disableVerification;
+      const normalized = (email || '').trim().toLowerCase();
+      const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+      const cred = user ? await this.prisma.passwordCredential.findUnique({ where: { userId: user.id } }) : null;
+      const ok = await verifyPassword(cred?.hash || DUMMY_HASH, password || '', this.cfg.pepper);
 
-    if (!user || !ok || user.isActive === false || (isVerificationRequired && !user.emailVerifiedAt)) {
-      if (user && isVerificationRequired && !user.emailVerifiedAt) {
-        await this.audit.append('LOGIN_FAIL_NOT_VERIFIED', user.id, req);
-      } else {
-        await this.audit.append('LOGIN_FAIL', user?.id, req);
+      // Check authentication and verification requirements
+      const disableVerification = this.cfg.emailVerification?.disableEmailVerification || false;
+      const isVerificationRequired = !disableVerification;
+
+      if (!user || !ok || user.isActive === false || (isVerificationRequired && !user.emailVerifiedAt)) {
+        if (user && isVerificationRequired && !user.emailVerifiedAt) {
+          await this.audit.append('LOGIN_FAIL_NOT_VERIFIED', user.id, req);
+        } else {
+          await this.audit.append('LOGIN_FAIL', user?.id, req);
+        }
+        // Always return 401 with generic message to prevent user enumeration
+        return { status: 401, body: { error: 'Invalid credentials' } };
       }
-      return { status: 401, body: { error: 'Invalid credentials' } };
-    }
 
-    const sid = await this.sessions.create(user.id, req);
-    this.setSessionCookie(res, sid);
-    await this.audit.append('LOGIN_SUCCESS', user.id, req);
-    return { status: 200, body: { id: user.id, email: user.email, emailVerified: !!user.emailVerifiedAt } };
+      const sid = await this.sessions.create(user.id, req);
+      this.setSessionCookie(res, sid);
+      await this.audit.append('LOGIN_SUCCESS', user.id, req);
+      return { status: 200, body: { id: user.id, email: user.email, emailVerified: !!user.emailVerifiedAt } };
+    } catch (error) {
+      console.error('Login failed:', error);
+      return { status: 500, body: { error: 'Authentication failed' } };
+    }
   }
 
   async logout(req: Request): Promise<{ status: number; body?: any }> {
@@ -116,13 +137,20 @@ export class AuthService {
   async requestVerify(req: Request): Promise<{ status: number; body?: any }> {
     const user = (req as any).user as { id: string; email: string } | undefined;
     if (!user || !this.prisma?.emailVerificationToken) return { status: 401, body: { error: 'Unauthorized' } };
-    const token = randomTokenB64url(32);
-    await this.prisma.emailVerificationToken.create({
-      data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
-    });
-    await this.mailer.sendVerifyEmail({ email: user.email }, token).catch(() => {});
-    await this.audit.append('VERIFY_SENT', user.id, req);
-    return { status: 204 };
+
+    try {
+      const token = randomTokenB64url(32);
+      await this.prisma.emailVerificationToken.create({
+        data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 60) },
+      });
+      await this.mailer.sendVerifyEmail({ email: user.email }, token);
+      await this.audit.append('VERIFY_SENT', user.id, req);
+      return { status: 204 };
+    } catch (error) {
+      console.error('Failed to send verification email:', error);
+      await this.audit.append('VERIFY_SEND_FAILED', user.id, req);
+      return { status: 500, body: { error: 'Failed to send verification email' } };
+    }
   }
 
   async verifyEmail(token: string, req: Request, res: Response): Promise<{ status: number; body?: any }> {
@@ -162,12 +190,18 @@ export class AuthService {
     if (!this.prisma?.passwordResetToken || !this.prisma?.user) throw new Error('Prisma not wired');
     const user = await this.prisma.user.findUnique({ where: { email: (email || '').trim().toLowerCase() } });
     if (user) {
-      const token = randomTokenB64url(32);
-      await this.prisma.passwordResetToken.create({
-        data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 30) },
-      });
-      await this.mailer.sendPasswordReset({ email: user.email }, token).catch(() => {});
-      await this.audit.append('RESET_REQ', user.id, req);
+      try {
+        const token = randomTokenB64url(32);
+        await this.prisma.passwordResetToken.create({
+          data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 1000 * 60 * 30) },
+        });
+        await this.mailer.sendPasswordReset({ email: user.email }, token);
+        await this.audit.append('RESET_REQ', user.id, req);
+      } catch (error) {
+        console.error('Failed to send password reset email:', error);
+        // Continue even if email fails - user can retry
+        await this.audit.append('RESET_SEND_FAILED', user.id, req);
+      }
     }
     // Always 204 to avoid enumeration
     return { status: 204 };

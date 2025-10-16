@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { RateLimitGuard } from './ratelimit/ratelimit.guard.js';
 import { RateLimit } from './ratelimit/ratelimit.decorator.js';
 
-@Module({ 
-  providers: [RateLimitGuard], 
+@Module({
+  providers: [
+    { provide: Reflector, useValue: new Reflector() },
+    RateLimitGuard
+  ],
   exports: [RateLimitGuard],
-  imports: [] // Reflector is available globally in NestJS
 })
 export class RateLimitModule {}
